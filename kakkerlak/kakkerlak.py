@@ -4,34 +4,17 @@ kakkerlak.py - A simple module for demonstration purposes
 
 import os
 import pathlib
-from enum import Enum
 from typing import List
 
+from .definitions import DataEntry, DataGroup, ExportType, ImportType
 from .logger import logger
-
-
-class ImportType(str, Enum):
-    """
-    Enum for import types.
-    """
-
-    UNKNOWN = "UNKNOWN"
-    JUNIT_XML = "JUNIT_XML"
-
-
-class ExportType(str, Enum):
-    """
-    Enum for export types.
-    """
-
-    UNKNOWN = "UNKNOWN"
-    HTML = "HTML"
+from .parsers.junit_xml_parser import parse_junit_xml
 
 
 class Kakkerlak:
     def __init__(self):
         self.data_paths: List[pathlib.Path] = []
-        self.data_entries: list = []
+        self.data_entries: List[DataGroup] = []
 
     def __determine_input_type(self, path: pathlib.Path) -> ImportType:
         """
@@ -49,22 +32,24 @@ class Kakkerlak:
         Parse the input data entries into a dictionary.
         :return: Parsed data as a dictionary.
         """
-        data_entries: list = []
+        data_entries: List[DataGroup] = []
 
         for data_path in data_paths:
-            data = {}
+            data: DataGroup = DataGroup()
+
             if data_path.exists():
                 input_type = self.__determine_input_type(data_path)
                 if input_type == ImportType.JUNIT_XML:
-                    # Placeholder for JUnit XML parsing logic
-                    data["parsed"] = "Parsed JUnit XML data"
+                    data = parse_junit_xml(data_path)
                 else:
                     logger.warning("Unsupported file type: %s", data_path)
+                    continue
+
             else:
                 logger.error("File does not exist: %s", data_path)
                 raise FileNotFoundError(f"File does not exist: {data_path}.")
 
-            self.data_entries.append(data)
+            data_entries.append(data)
 
         return data_entries
 
@@ -126,5 +111,9 @@ class Kakkerlak:
         if not path.parent.exists():
             logger.debug("Creating directory for export path: %s.", path.parent)
             path.parent.mkdir(parents=True, exist_ok=True)
+
+        if path.exists():
+            logger.warning("File already exists and will be overwritten: %s.", path)
+            os.remove(path)
 
         self.data_entries = self.__parse_data_entries(self.data_paths)
